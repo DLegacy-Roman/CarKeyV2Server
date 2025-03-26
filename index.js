@@ -33,10 +33,16 @@ app.get('/login', function (req, res) {
 app.get('/exchange', async function (req, res) {
   const code = req.query.code;
 
-  // in a production app you'll want to store this in some kind of persistent storage
-  access = await client.exchangeCode(code);
+  try {
+    access = await client.exchangeCode(code);
 
-  res.redirect('/vehicle');
+    // Redirect to the app with token
+    const redirectUrl = `carKeyV3://auth-success?access_token=${access.accessToken}`;
+    res.redirect(redirectUrl);
+  } catch (err) {
+    console.error('Error exchanging code:', err);
+    res.status(500).send('Authorization failed');
+  }
 });
 
 app.get('/vehicle', async function (req, res) {
