@@ -1,25 +1,33 @@
 'use strict';
 
+require('dotenv').config(); // Load .env variables
+
 const express = require('express');
 const exphbs = require('express-handlebars');
 const smartcar = require('smartcar');
 
 const app = express();
+const port = 8000;
+
+// Setup Handlebars view engine
 app.engine(
   '.hbs',
   exphbs({
     defaultLayout: 'main',
     extname: '.hbs',
-  }),
+  })
 );
 app.set('view engine', '.hbs');
-const port = 8000;
 
+// Initialize Smartcar AuthClient
 const client = new smartcar.AuthClient({
+  clientId: process.env.SMARTCAR_CLIENT_ID,
+  clientSecret: process.env.SMARTCAR_CLIENT_SECRET,
+  redirectUri: process.env.SMARTCAR_REDIRECT_URI,
   mode: 'simulated',
 });
 
-// global variable to save our accessToken
+// Global variable to save access token
 let access;
 
 app.get('/login', function (req, res) {
@@ -33,26 +41,32 @@ app.get('/login', function (req, res) {
 app.get('/exchange', async function (req, res) {
   const code = req.query.code;
 
-  // in a production app you'll want to store this in some kind of persistent storage
-  access = await client.exchangeCode(code);
-
-  res.redirect('/vehicle');
+  try {
+    access = await client.exchangeCode(code);
+    res.redirect('/vehicle');
+  } catch (err) {
+    console.error('Error exchanging code:', err);
+    res.status(500).send('Authorization failed');
+  }
 });
 
 app.get('/vehicle', async function (req, res) {
-  const vehicles = await smartcar.getVehicles(access.accessToken);
+  if (!access || !access.accessToken) {
+    return res.redirect('/login');
+  }
 
-  // instantiate first vehicle in vehicle list
-  const vehicle = new smartcar.Vehicle(
-    vehicles.vehicles[0],
-    access.accessToken,
-  );
+  try {
+    const vehicles = await smartcar.getVehicles(access.accessToken);
+    const vehicle = new smartcar.Vehicle(vehicles.vehicles[0], access.accessToken);
+    const attributes = await vehicle.attributes();
 
-  // get identifying information about a vehicle
-  const attributes = await vehicle.attributes();
-  res.render('vehicle', {
-    info: attributes,
-  });
+    res.render('vehicle', {
+      info: attributes,
+    });
+  } catch (err) {
+    console.error('Error retrieving vehicle:', err);
+    res.status(500).send('Failed to get vehicle info');
+  }
 });
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+app.listen(port, () => console.log(`✅ Server running on http://localhost:${port}`));
