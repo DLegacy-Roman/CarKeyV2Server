@@ -37,7 +37,7 @@ app.get('/exchange', async function (req, res) {
     access = await client.exchangeCode(code);
 
     // Redirect to the app with token
-    const redirectUrl = `carKeyV3://auth-success?access_token=${access.accessToken}`;
+    const redirectUrl = `carKeyV3://auth-success?code=${access.accessToken}`;
     res.redirect(redirectUrl);
   } catch (err) {
     console.error('Error exchanging code:', err);
